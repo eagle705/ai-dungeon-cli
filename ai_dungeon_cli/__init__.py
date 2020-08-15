@@ -19,9 +19,8 @@ if module_path not in sys.path:
     sys.path.append(module_path)
 
 from impl.utils.debug_print import activate_debug, debug_print, debug_pprint
-from impl.api.client import AiDungeonApiClient
 from impl.conf import Config
-from impl.user_interaction import UserIo, TermIo, TermIoSlowStory
+from impl.user_interaction import UserIo, TermIo
 
 
 # -------------------------------------------------------------------------
@@ -36,16 +35,10 @@ class QuitSession(Exception):
 # GAME LOGIC
 
 class AbstractAiDungeonGame(ABC):
-    def __init__(self, api: AiDungeonApiClient, conf: Config, user_io: UserIo):
+    def __init__(self, conf: Config, user_io: UserIo):
         self.stop_session: bool = False
-        self.user_id: str = None
-        self.session_id: str = None
-        self.public_id: str = None
-        self.setting_name: str = None
-        self.story_configuration: Dict[str, str] = {}
         self.session: requests.Session = requests.Session()
 
-        self.api = api
         self.conf = conf
         self.user_io = user_io
 
@@ -55,248 +48,231 @@ class AbstractAiDungeonGame(ABC):
     def get_auth_token(self) -> str:
         return self.conf.auth_token
 
-    def get_credentials(self):
-        if self.conf.email and self.conf.password:
-            return [self.conf.email, self.conf.password]
-
-    def login(self):
-        pass
-
-    def choose_selection(self, allowed_values: Dict[str, str], k_or_v='v') -> str:
-
-        if k_or_v == 'k':
-            allowed_values = {v: k for k, v in allowed_values.items()}
-
-        while True:
-            choice = self.user_io.handle_user_input()
-            choice = choice.strip()
-
-            if choice == "/quit":
-                raise QuitSession("/quit")
-
-            elif choice in allowed_values.keys():
-                return allowed_values[choice]
-            elif choice in allowed_values.values():
-                    return choice
-            else:
-                self.user_io.handle_basic_output("Please enter a valid selection.")
-                continue
-
-
-    def choose_config(self):
-        pass
-
-    # Initialize story
-    def init_story(self):
-        pass
-
-    def resume_story(self, session_id: str):
-        pass
-
-    # Function for when the input typed was ordinary
-    def process_regular_action(self, user_input: str):
-        pass
-
-    # Function for when /remember is typed
-    def process_remember_action(self, user_input: str):
-        pass
-
-    # Function that is called each iteration to process user inputs
-    def process_next_action(self):
-        user_input = self.user_io.handle_user_input()
-
-        if user_input == "/quit":
-            self.stop_session = True
-
-        else:
-            if user_input.startswith("/remember"):
-                self.process_remember_action(user_input[len("/remember "):])
-            else:
-                self.process_regular_action(user_input)
-
-    def start_game(self):
-        # Run until /quit is received inside the process_next_action func
-        while not self.stop_session:
-            self.process_next_action()
-
-
 ## --------------------------------
 
-class AiDungeonGame(AbstractAiDungeonGame):
-    def __init__(self, api: AiDungeonApiClient, conf: Config, user_io: UserIo):
-        super().__init__(api, conf, user_io)
 
+class MyAiDungeonGame(AbstractAiDungeonGame):
+    def __init__(self, conf: Config, user_io: UserIo):
+        super().__init__(conf, user_io)
 
-    def login(self):
+        self.url: str = 'wss://api.aidungeon.io/subscriptions'
+        self.custom_scenario_id: str = 'scenario:458625' # custom
+
+    def _execute_query(self, query, params=None):
+        return self.gql_client.execute(gql(query), variable_values=params)
+
+    def boot(self, access_token, prompt):
+        def init():
+            self.websocket = WebsocketsTransport(
+                url=self.url,
+                init_payload={'token': access_token})
+            self.gql_client = Client(transport=self.websocket)
+
+        def create(prompt_x):
+            result = self._execute_query('''
+            mutation ($id: String, $prompt: String) {  createAdventureFromScenarioId(id: $id, prompt: $prompt) {    id    contentType    contentId    title    description    musicTheme    tags    nsfw    published    createdAt    updatedAt    deletedAt    publicId    historyList    __typename  }}
+            ''',
+                                     {
+                                         "id": self.custom_scenario_id,
+                                         "prompt": prompt_x
+                                     }
+            )
+        
+            self.adventure_id = result['createAdventureFromScenarioId']['id']
+            self.history = None
+            if 'historyList' in result['createAdventureFromScenarioId']:
+                # NB: not present when self.story_pitch is None, as is the case for a custom scenario
+                self.history = result['createAdventureFromScenarioId']['historyList']
+                self.history = [{'id':x['id'],'text':x['text']} for x in self.history]
+
+        def alter(id,text):
+            result = self._execute_query('''
+            mutation ($input: ContentActionInput) {  doAlterAction(input: $input) {    id    actions {      id      text      }    __typename }}
+            ''',                        {
+                                            "input":
+                                            {
+                                                "text": text,
+                                                "type": "alter",
+                                                "id": self.adventure_id,
+                                                "actionId": id
+                                            }
+            })
+            self.history = result['doAlterAction']['actions']
+        
+        def cont(text):
+            result = self._execute_query('''
+            mutation ($input: ContentActionInput) {  sendAction(input: $input) {    id    actionLoading    memory    died    gameState    __typename  }}
+            ''',
+                {
+                    "input": {
+                        "type": "story",
+                        "text": text,
+                        "id": self.adventure_id
+                    }
+                })
+
+            result = self._execute_query('''
+            query ($id: String, $playPublicId: String) {
+                content(id: $id, playPublicId: $playPublicId) {
+                    id
+                    actions {
+                        id
+                        text
+                    }
+                }
+            }
+            ''',
+                {
+                    "id": self.adventure_id
+                })
+            self.history = result['content']['actions']
+
+        from googletrans import Translator
+        translator = Translator()
+
+        def en_ko(text):
+            return translator.translate(text, dest="ko").text
+
+        self.en_ko = en_ko
+            
+        def show():
+            text = ''.join([x['text'] for x in self.history])
+            print(text)
+            
+            result = en_ko(text)
+            self.en_text = text
+            self.ko_text = result
+            print(self.ko_text)
+
+        init()
+
+        # skip gpt-2
+        prompt_x = prompt[:4]
+        prompt_y = prompt[4:]
+        create(prompt_x)
+        show()
+        
+        # spinning for result
+        while len(self.history) == 1:
+            cont('')
+            show()
+
+        alter(self.history[-1]['id'],prompt_y)
+        show()
+
+        def go(text=''):
+            result = translator.translate(text, dest="en")
+            text = result.text
+
+            cont(text)
+            show()
+
+        def rollback(nlines=1):
+            for h in self.history[::-1]:
+                if nlines <= 0:
+                    break
+
+                lines = h['text'].split('\n')
+                
+                if len(lines) <= nlines:
+                    alter(h['id'],'')
+                    nlines -= len(lines)
+                else:
+                    alter(h['id'],'\n'.join(lines[:len(lines)-nlines]))
+                    nlines = 0
+            show()
+                
+        self.go = go
+        self.rollback = rollback
+
+    def main(self):
         auth_token = self.get_auth_token()
 
-        if auth_token:
-            self.api.update_session_access_token(auth_token)
-        else:
-            creds = self.get_credentials()
-            if creds:
-                email, password = creds
-                self.api.user_login(email, password)
+        assert auth_token
+
+        with open(self.conf.scene) as f:
+            self.boot(auth_token, f.read())
+
+        from collections import Counter
+        cands = [l.split(':')[0].strip() for l in self.en_text.split('\n')]
+        c = Counter(cands)
+        del c['']
+
+        actors = [x[0] for x in c.most_common(2)]
+        
+        if len(actors) == 2:
+            if cands.index(actors[0]) > cands.index(actors[1]) or \
+                actors[0].lower().startswith('agent') or \
+                actors[1].lower().startswith('user') or \
+                actors[1].lower().startswith('you'):
+                actors = actors[::-1]
+
+            print('Actors detected',actors)
+
+        def say(text):
+            import subprocess
+            subprocess.run(['say',text])
+
+        def listen():
+            import speech_recognition as sr
+            recognizer = sr.Recognizer()
+            mic = sr.Microphone()
+            
+            print('Recording...')
+            with mic as source:
+                recognizer.adjust_for_ambient_noise(source)
+                audio = recognizer.listen(source)
+
+            result = recognizer.recognize_google(audio,language='ko-KR')
+            print('Listened: ',result)
+            return result
+
+        while True:
+            user_input = self.user_io.handle_user_input()
+            if user_input.startswith('/r'):
+                self.rollback(len(user_input)-1)
+            elif user_input.startswith('/s'):
+                nlines = len(user_input)-1
+                text = '\n'.join(self.ko_text.split('\n')[-nlines:])
+                say(text)
+            elif user_input.startswith('/qa'):
+                prev_lines = len(self.en_text.split('\n'))
+                actor_u, actor_a = actors
+                self.go(f'{actor_u}: ' + listen())
+
+                # wait for answer to be fully-generated.
+                while True:
+                    found = False
+                    t = self.en_text.split('\n')[prev_lines:]
+                    for i,l in enumerate(t):
+                        if l.startswith(actor_a):
+                            found = i < (len(t) - 1)
+                            break
+                    if found:
+                        break
+
+                    self.go('')
+                            
+                t_en = self.en_text.split('\n')[prev_lines:]
+                
+                for i,l in enumerate(t_en):
+                    if l.startswith(actor_a):
+                        l_ko = self.en_ko(':'.join(l.split(':')[1:]))
+                        say(l_ko)
+                        self.rollback(max(0,len(t) - i - 1))
+                        break
             else:
-                self.api.anonymous_login()
-
-
-    def _choose_character_name(self):
-        print("Enter your character's name...\n")
-
-        character_name = self.user_io.handle_user_input()
-
-        if character_name == "/quit":
-            raise QuitSession("/quit")
-
-        self.api.character_name = character_name # TODO: create a setter instead
-
-
-    def choose_config(self):
-        # self.api.perform_init_handshake()
-
-        ## SETTING SELECTION
-
-        prompt, settings = self.api.get_options(self.api.single_player_mode_id)
-
-        print(prompt + "\n")
-
-        setting_select_dict = {}
-        for i, setting in settings.items():
-            setting_id, setting_name = setting
-            print(str(i) + ") " + setting_name)
-            setting_select_dict[str(i)] = setting_name
-            # setting_select_dict['0'] = '0' # secret mode
-        selected_i = self.choose_selection(setting_select_dict, 'k')
-        setting_id, self.setting_name = settings[selected_i]
-        self.api.scenario_id = setting_id # TODO: create a setter instead
-
-        if self.setting_name == "custom":
-            return
-        elif self.setting_name == "archive":
-            while True:
-                prompt, options = self.api.get_options(self.api.scenario_id)
-
-                if options is None:
-                    self.api.story_pitch_template = prompt
-                    self._choose_character_name()
-                    self.api.set_story_pitch()
-                    return
-
-                print(prompt + "\n")
-
-                select_dict = {}
-                for i, option in options.items():
-                    option_id, option_name = option
-                    print(str(i) + ") " + option_name)
-                    select_dict[str(i)] = option_name
-                    # setting_select_dict['0'] = '0' # secret mode
-                selected_i = self.choose_selection(select_dict, 'k')
-                option_id, option_name = options[selected_i]
-                self.api.scenario_id = option_id # TODO: create a setter instead
-
-
-        ## CHARACTER SELECTION
-
-        prompt, characters = self.api.get_characters()
-
-        print(prompt + "\n")
-
-        character_select_dict = {}
-        for i, character in characters.items():
-            character_id, character_type = character
-            print(str(i) + ") " + character_type)
-            character_select_dict[str(i)] = character_type
-        selected_i = self.choose_selection(character_select_dict, 'k')
-        character_id, character_type = characters[selected_i]
-        self.api.scenario_id = character_id # TODO: create a setter instead
-
-        self._choose_character_name()
-
-        ## PITCH
-
-        self.api.get_story_for_scenario()
-        self.api.set_story_pitch()
-
-
-    # Initialize story
-    def init_story(self):
-        if self.setting_name == "custom":
-            self.init_story_custom()
-        else:
-            print("Generating story... Please wait...\n")
-            self.api.init_story()
-
-        self.user_io.handle_story_output(self.api.story_pitch)
-
-
-    def init_story_custom(self):
-        self.user_io.handle_basic_output(
-            "Enter a prompt that describes who you are and the first couple sentences of where you start out ex: "
-            "'You are a knight in the kingdom of Larion. You are hunting the evil dragon who has been terrorizing "
-            "the kingdom. You enter the forest searching for the dragon and see'"
-        )
-        user_story_pitch = self.user_io.handle_user_input()
-
-        self.api.story_pitch = None
-        self.api._create_adventure(self.api.scenario_id)
-        self.api.init_custom_story_pitch(user_story_pitch)
-
-
-    def find_action_type(self, user_input: str):
-        user_input = user_input.strip()
-        action = 'do'
-        if user_input == '':
-            return (action, user_input)
-        elif user_input.lower().startswith('/do '):
-            user_input = user_input[len('/do '):]
-            action = 'do'
-        elif user_input.lower().startswith('/say '):
-            user_input = user_input[len('/say '):]
-            action = 'say'
-        elif user_input.lower().startswith('/story '):
-            user_input = user_input[len('/story '):]
-            action = 'story'
-        elif user_input.lower().startswith('you say "') and user_input[-1] == '"':
-            user_input = user_input[len('you say "'):-1]
-            action = 'say'
-        elif user_input[0] == '"' and user_input[-1] == '"':
-            user_input = user_input[1:-1]
-            action = 'say'
-        return (action, user_input)
-
-
-    # Function for when the input typed was ordinary
-    def process_regular_action(self, user_input: str):
-
-        (action, user_input) = self.find_action_type(user_input)
-
-        resp = self.api.perform_regular_action(action, user_input)
-
-        self.user_io.handle_story_output(resp)
-
-    def process_remember_action(self, user_input: str):
-        self.api.perform_remember_action(user_input)
-
-    def process_next_action(self):
-        user_input = self.user_io.handle_user_input()
-
-        if user_input == "/quit":
-            self.stop_session = True
-
-        else:
-            if user_input.startswith("/remember"):
-                # pass
-                self.process_remember_action(user_input[len("/remember "):])
-            else:
-                self.process_regular_action(user_input)
-
+                MIC = '<mic>'
+                if MIC in user_input:
+                    result = listen()
+                    user_input = user_input.replace(MIC,result)
+                    
+                self.go(user_input.replace('\\n','\n'))
 
 # -------------------------------------------------------------------------
 # MAIN
 
 def main():
-
     try:
         # Initialize the configuration from config file
         file_conf = Config.loaded_from_file()
@@ -307,36 +283,16 @@ def main():
             activate_debug()
 
         # Initialize the terminal I/O class
-        if conf.slow_typing_effect:
-            term_io = TermIoSlowStory(conf.prompt)
-        else:
-            term_io = TermIo(conf.prompt)
-
-        api_client = AiDungeonApiClient()
+        term_io = TermIo(conf.prompt)
 
         # Initialize the game logic class with the given auth_token and prompt
-        ai_dungeon = AiDungeonGame(api_client, conf, term_io)
+        ai_dungeon = MyAiDungeonGame(conf, term_io)
 
         # Clears the console
         term_io.clear()
 
         # Login
-        ai_dungeon.login()
-
-        # Displays the splash image accordingly
-        if term_io.get_width() >= 80:
-            term_io.display_splash()
-
-        # Loads the current session configuration
-        ai_dungeon.choose_config()
-
-        # Initializes the story
-        ai_dungeon.init_story()
-
-        # exit()
-
-        # Starts the game
-        ai_dungeon.start_game()
+        ai_dungeon.main()
 
     except QuitSession:
         term_io.handle_basic_output("Bye Bye!")

@@ -1,4 +1,7 @@
 requests >= 2.23.0
 PyYAML >= 5.1.2
 gql >= v3.0.0a1
+pyaudio
+googletrans
+SpeechRecognition
 pyreadline >= 2.1;platform_system=='Windows'
