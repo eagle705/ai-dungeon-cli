@@ -27,6 +27,8 @@ class Config:
         self.email: str = None
         self.scene: str = None
         self.voice: str = None
+        self.tts: str = None
+        self.asr: str = None
         self.locale: str = None
         self.password: str = None
 
@@ -35,7 +37,7 @@ class Config:
         default_conf = Config()
         conf = Config()
         for c in confs:
-            for a in ['prompt', 'scene', 'debug', 'locale', 'voice',
+            for a in ['prompt', 'scene', 'debug', 'locale', 'voice', 'tts', 'asr',
                       'auth_token']:
                 v = getattr(c, a)
                 if getattr(default_conf, a) != v:
@@ -57,6 +59,10 @@ class Config:
             self.prompt = parsed.prompt
         if hasattr(parsed, "scene"):
             self.scene = parsed.scene
+        if hasattr(parsed, "tts"):
+            self.tts = parsed.tts
+        if hasattr(parsed, "asr"):
+            self.asr = parsed.asr
         if hasattr(parsed, "voice"):
             self.voice = parsed.voice
         if hasattr(parsed, "locale"):
@@ -82,6 +88,12 @@ class Config:
 
         parser.add_argument("--voice", type=str, required=False,
                             help="voice actor for 'say'")
+
+        parser.add_argument("--tts", type=str, required=False, default="say",
+                            help="tts driver")
+
+        parser.add_argument("--asr", type=str, required=False, default="google",
+                            help="asr driver")
 
         parser.add_argument("--locale", type=str, default="ko-KR",
                             help="locale")

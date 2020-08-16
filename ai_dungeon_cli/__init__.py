@@ -201,10 +201,49 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
         self.rollback = rollback
 
     def main(self):
+        def nest(audio,url):
+            import requests
+            import json
+            files = {'audio':audio.get_wav_data()}
+            resp = requests.post(url, files=files)
+            return json.loads(resp.text)['text']
+
+        def listen():
+            import speech_recognition as sr
+            recognizer = sr.Recognizer()
+            mic = sr.Microphone()
+            
+            print('Calibrating Mic...')
+            with mic as source:
+                recognizer.adjust_for_ambient_noise(source)
+                print('Recording...')
+                audio = recognizer.listen(source,phrase_time_limit=5)
+
+            while True:
+                try:
+                    if self.conf.asr == 'google':
+                        result = recognizer.recognize_google(audio,language=self.conf.locale)
+                    elif self.conf.asr.startswith('nest'):
+                        result = nest(audio,url=self.conf.asr.split(',')[1])
+                    break
+                except sr.UnknownValueError:
+                    print('Got a ASR error / retry')
+                    continue
+            print('Listened: ',result)
+            return result
+
         def say(text):
             import subprocess
-            opts = ['-v',self.conf.voice] if self.conf.voice else []
-            subprocess.run(['say',*opts,text])
+            import urllib
+
+            if self.conf.tts == 'say':
+                opts = ['-v',self.conf.voice] if self.conf.voice else []
+                subprocess.run(['say',*opts,text])
+            elif self.conf.tts.startswith('nes'):
+                url = self.conf.tts.split(',')[1]
+                synthesize = f'curl "{url}/synthesize?speaker={self.conf.voice}&text={urllib.parse.quote(text)}&emotion=0&speed=0&pitch=0&volume=0&format=mp3&use_cache=false"'
+                f = subprocess.check_output(synthesize, shell=True, stderr=subprocess.DEVNULL)
+                subprocess.check_output(f"curl {url}{f.decode()} --output - | play -t mp3 -", shell=True, stderr=subprocess.DEVNULL)
 
         auth_token = self.get_auth_token()
 
@@ -228,27 +267,6 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 actors = actors[::-1]
 
             print('Actors detected',actors)
-
-        def listen():
-            import speech_recognition as sr
-            recognizer = sr.Recognizer()
-            mic = sr.Microphone()
-            
-            print('Calibrating Mic...')
-            with mic as source:
-                recognizer.adjust_for_ambient_noise(source)
-                print('Recording...')
-                audio = recognizer.listen(source)
-
-            while True:
-                try:
-                    result = recognizer.recognize_google(audio,language=self.conf.locale)
-                    break
-                except sr.UnknownValueError:
-                    print('Got a ASR error / retry')
-                    continue
-            print('Listened: ',result)
-            return result
 
         while True:
             user_input = self.user_io.handle_user_input()
