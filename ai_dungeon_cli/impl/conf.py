@@ -26,6 +26,8 @@ class Config:
         self.auth_token: str = None
         self.email: str = None
         self.scene: str = None
+        self.voice: str = None
+        self.locale: str = None
         self.password: str = None
 
     @staticmethod
@@ -33,7 +35,7 @@ class Config:
         default_conf = Config()
         conf = Config()
         for c in confs:
-            for a in ['prompt', 'scene', 'debug',
+            for a in ['prompt', 'scene', 'debug', 'locale', 'voice',
                       'auth_token']:
                 v = getattr(c, a)
                 if getattr(default_conf, a) != v:
@@ -55,6 +57,10 @@ class Config:
             self.prompt = parsed.prompt
         if hasattr(parsed, "scene"):
             self.scene = parsed.scene
+        if hasattr(parsed, "voice"):
+            self.voice = parsed.voice
+        if hasattr(parsed, "locale"):
+            self.locale = parsed.locale
         if hasattr(parsed, "auth_token"):
             self.auth_token = parsed.auth_token
             # if exists(cfg, "user_name"):
@@ -70,8 +76,16 @@ class Config:
 
         parser.add_argument("--auth-token", type=str, required=True,
                             help="authentication token")
+
         parser.add_argument("--scene", type=str, required=True,
                             help="scene file")
+
+        parser.add_argument("--voice", type=str, required=False,
+                            help="voice actor for 'say'")
+
+        parser.add_argument("--locale", type=str, default="ko-KR",
+                            help="locale")
+
         return parser.parse_args()
 
 

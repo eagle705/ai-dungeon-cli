@@ -1,95 +1,25 @@
-# AI Dungeon CLI
+# GPT-3 Interactive
 
-This is basically a cli client to [play.aidungeon.io](https://play.aidungeon.io/).
+This work is based on [AI Dungeon CLI](https://github.com/Eigenbahn/ai-dungeon-cli).
 
-This allows playing AI Dungeon 2 inside a terminal.
+Speech-enabled Interactive GPT-3 CLI is integrated with Google Speech Recognition, Google Translation and Apple Text-To-Speech.
 
-I primarily did this to play the game on a DEC VT320 hardware terminal for a more _faithful_ experience.
+#### Installation
 
-For more context, read the [accompanying blog post](https://www.eigenbahn.com/2020/02/22/ai-dungeon-cli).
-
-![AI DUngeon on a VT320](https://www.eigenbahn.com/assets/img/ai-dungeon-vt320.jpg)
-
-
-## Installation
-
-#### pip
-
-[![PyPI version fury.io](https://badge.fury.io/py/ai-dungeon-cli.svg)](https://pypi.python.org/project/ai-dungeon-cli/)
-
-    $ python3 -m pip install ai-dungeon-cli
-
-
-Or for unstable release from the source code:
-
-    $ python3 -m pip install .
-
-
-#### Arch Linux
-
-[![AUR version](https://img.shields.io/aur/version/ai-dungeon-cli?logo=arch-linux)](https://aur.archlinux.org/packages/ai-dungeon-cli)
-
-Package is on [AUR](https://aur.archlinux.org/packages/ai-dungeon-cli-git/).
-
-Using [trizen](https://github.com/trizen/trizen):
-
-    $ trizen -S ai-dungeon-cli-git
-
-Old school way:
-
-    $ git clone https://aur.archlinux.org/ai-dungeon-cli-git.git
-    $ cd ai-dungeon-cli-git
-    $ makepkg -si
-
-
-## Playing
-
-Unless specified, all user inputs are considered `Do` actions.
-
-Quoted input entries are automatically interpreted as `Say` actions, e.g.:
-
-    > "Hey dragon! You didn't invite me to the latest BBQ party!"
-
-Do be explicit about the action type, prefix your input with a command:
-
- - `/do`
- - `/say`
- - `/story`
- - `/remember`
-
-For example, the previous `Say` prompt could also be written:
-
-    > /say Hey dragon! You didn't invite me to the latest BBQ party!
-
-To quit, either press `Ctrl-C`, `Ctrl-D` or type in the special `/quit` command.
+```
+    $ python3 -m pip install -e .
+```
 
 ## Running
 
 In any case, you first need to create a configuration file.
 
-#### Installed
 
-    $ ai-dungeon-cli
+```
+    $ ai-dungeon-cli  --auth-token [your auth token] --scene scenes/qa --locale ko-KR --voice Yuna
+```
 
-#### From source
-
-With a conda env (assuming you're using [anaconda](https://www.anaconda.com/)):
-
-    $ cd ai-dungeon-cli
-    $ conda env create
-    $ conda activate ai-dungeon-cli-env
-    $ ./ai_dungeon_cli/__init__.py
-
-With a viltualenv:
-
-    $ cd ai-dungeon-cli
-    $ virtualenv -p $(command -v python3) ai-dungeon-cli-venv
-    $ source ai-dungeon-cli-venv/bin/activate
-    $ python3 -m pip install -r requirements.txt
-    $ ./ai_dungeon_cli/__init__.py
-
-Please note that all those examples use a virtual env in order to not mess up with the main Python env on your system.
-
+Specified voice font should be available with OS/X Say command.
 
 ## Configuration (optional)
 
@@ -103,18 +33,7 @@ Create a file `config.yml` either:
 
 #### Authentication
 
-By default, if no authentication configurati is provided, an anonymous session is created.
-
-ai-dungeon-cli supports 2 ways to configure user authentication.
-
-Either precise a couple of credentials in conf:
-
-```yaml
-email: '<MY-USER-EMAIL>'
-password: '<MY-USER-PASSWORD>'
-```
-
-Or sniff a _Authentication Token_ and use it directly:
+Sniff a _Authentication Token_ and use it directly:
 
 ```yaml
 auth_token: '<MY-AUTH-TOKEN>'
@@ -138,17 +57,6 @@ prompt: 'me: '
 ```
 
 
-#### Slow Typing Animation
-
-By default, responses are printed to the screen instantly.
-
-To enable a fun "slow" typing animation, use:
-
-```yaml
-slow_typing_effect: True
-```
-
-
 ## Dependencies
 
 Please have a look at [requirements.txt](./requirements.txt).
@@ -165,11 +73,6 @@ For now `/revert` and `/alter`special actions are not supported.
 It would also be nice to add support for browsing other players' stories (_Explore_ menu).
 
 
-## Implementation details
-
-We fallback to a pure ASCII version of the splash logo if we detect an incompatible locale / terminal type.
-
-
 ## Support
 
 As you might have heard, hosting AI Dungeon costs a lot of money.
@@ -181,25 +84,11 @@ So don't hesitate to [help support the hosting fees](https://aidungeon.io/) to k
 
 ## Author
 
-Jordan Besly [@p3r7](https://github.com/p3r7) ([blog](https://www.eigenbahn.com/)).
+Nako Sung [@nakosung](https://github.com/nakosung).
 
 
 ## Contributors & acknowledgements
 
- Major contributions:
- - Idan Gur [@idangur](https://github.com/idangur): OOP rewrite of game logic
- - Alberto Oporto Ames [@otreblan](https://github.com/otreblan): packaging, submission to AUR
- - [@jgb95](https://github.com/jgb95): slow typing effect
- - Alexander Batyrgariev [@sasha00123](https://github.com/sasha00123): help on porting to new websocket/gql-based version of the API
+ - TBU
+ 
 
- Minor contributions:
- - Robert Davis [@bdavs](https://github.com/bdavs): pip requirements
- - [@Jezza](https://github.com/Jezza): suggested login using creds
-
-Code for slow typing effect inspired by [this message](https://mail.python.org/pipermail/tutor/2003-November/026645.html) from [Magnus Lycka](https://github.com/magnus-lycka) on the [Python Tutor mailing list](https://mail.python.org/mailman/listinfo/tutor).
-
-
-## Similar projects
-
- - [sasha00123/ai-dungeon-bot](https://github.com/sasha00123/ai-dungeon-bot), a bot for Telegram & VK, written in python
- - [SoptikHa2/aidungeon2-cli](https://github.com/SoptikHa2/aidungeon2-cli), written in Rust (unmaintained)

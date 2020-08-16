@@ -3,7 +3,7 @@
 import os
 import sys
 import asyncio
-from gql import gql, Client, WebsocketsTransport
+from gql import gql, Client, WebsocketsTransport, transport
 import requests
 
 from abc import ABC, abstractmethod
@@ -11,6 +11,16 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 from pprint import pprint
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 # NB: this is hackish but seems necessary when downloaded from pypi
 main_path = os.path.dirname(os.path.realpath(__file__))
@@ -130,19 +140,19 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
         from googletrans import Translator
         translator = Translator()
 
-        def en_ko(text):
-            return translator.translate(text, dest="ko").text
+        def translate_to_local(text):
+            return translator.translate(text, dest=self.conf.locale.split('-')[0]).text
 
-        self.en_ko = en_ko
+        self.translate_to_local = translate_to_local
             
         def show():
             text = ''.join([x['text'] for x in self.history])
-            print(text)
+            print(f'{bcolors.WARNING}{text}{bcolors.ENDC}')
             
-            result = en_ko(text)
+            result = translate_to_local(text)
             self.en_text = text
-            self.ko_text = result
-            print(self.ko_text)
+            self.local_text = result
+            print(f'{bcolors.OKGREEN}{self.local_text}{bcolors.ENDC}')
 
         init()
 
@@ -164,7 +174,12 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
             result = translator.translate(text, dest="en")
             text = result.text
 
-            cont(text)
+            try:
+                cont(text)
+            except asyncio.exceptions.TimeoutError:
+                return
+            except transport.exceptions.TransportQueryError:
+                return
             show()
 
         def rollback(nlines=1):
@@ -186,6 +201,11 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
         self.rollback = rollback
 
     def main(self):
+        def say(text):
+            import subprocess
+            opts = ['-v',self.conf.voice] if self.conf.voice else []
+            subprocess.run(['say',*opts,text])
+
         auth_token = self.get_auth_token()
 
         assert auth_token
@@ -209,21 +229,24 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
 
             print('Actors detected',actors)
 
-        def say(text):
-            import subprocess
-            subprocess.run(['say',text])
-
         def listen():
             import speech_recognition as sr
             recognizer = sr.Recognizer()
             mic = sr.Microphone()
             
-            print('Recording...')
+            print('Calibrating Mic...')
             with mic as source:
                 recognizer.adjust_for_ambient_noise(source)
+                print('Recording...')
                 audio = recognizer.listen(source)
 
-            result = recognizer.recognize_google(audio,language='ko-KR')
+            while True:
+                try:
+                    result = recognizer.recognize_google(audio,language=self.conf.locale)
+                    break
+                except sr.UnknownValueError:
+                    print('Got a ASR error / retry')
+                    continue
             print('Listened: ',result)
             return result
 
@@ -233,15 +256,17 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 self.rollback(len(user_input)-1)
             elif user_input.startswith('/s'):
                 nlines = len(user_input)-1
-                text = '\n'.join(self.ko_text.split('\n')[-nlines:])
+                text = '\n'.join(self.local_text.split('\n')[-nlines:])
                 say(text)
             elif user_input.startswith('/qa'):
                 prev_lines = len(self.en_text.split('\n'))
                 actor_u, actor_a = actors
-                self.go(f'{actor_u}: ' + listen())
+                q = user_input[len('/qa'):].strip()
+                q = listen() if len(q) == 0 else q
+                self.go(f'{actor_u}: ' + q)
 
-                # wait for answer to be fully-generated.
-                while True:
+                # wait for answer to be fully-generated. (MAX TRIALS: 5)
+                for _ in range(5):
                     found = False
                     t = self.en_text.split('\n')[prev_lines:]
                     for i,l in enumerate(t):
@@ -257,8 +282,8 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 
                 for i,l in enumerate(t_en):
                     if l.startswith(actor_a):
-                        l_ko = self.en_ko(':'.join(l.split(':')[1:]))
-                        say(l_ko)
+                        l_local = self.translate_to_local(':'.join(l.split(':')[1:]))
+                        say(l_local)
                         self.rollback(max(0,len(t) - i - 1))
                         break
             else:
