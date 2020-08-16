@@ -49,6 +49,28 @@ In any case, you first need to create a configuration file.
 
 Specified voice font should be available with OS/X Say command.
 
+### Commands
+
+```
+    [text]
+```
+Default command, nothing special. It will append `[text]` to the end of the context and request GPT-3 to generate further more.
+
+```
+    /qa [question]
+```
+To use in interactive way, you can use `/qa` command. If the question is not specified, it will be caught using record and speech API.
+
+```
+    /r[rrr...]
+```
+If you don't like the progression of GPT-3, you can revert using `/r` command. `/r` command tries to revert as many blocks as you ask.
+
+```
+    /s[sss...]
+```
+If you want a synthesized voice output for the progress, `/s` command will read loudly the last n blocks using OS/X "Say" command.
+
 ## Configuration (optional)
 
 Several things can be tuned by resorting to a config file.
