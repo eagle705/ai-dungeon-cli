@@ -1,11 +1,11 @@
-# Maintainer: Otreblan <otreblain@gmail.com>
+# Maintainer: nakosung <deif79@gmail.com>
 
 pkgname=ai-dungeon-cli-git
 pkgver=r22.15dcf04
 pkgrel=1
-pkgdesc="Play ai dungeon on your terminal"
+pkgdesc="Interact with GPT-3 on your terminal"
 arch=('any')
-url="https://github.com/Eigenbahn/ai-dungeon-cli"
+url="https://github.com/nakosung/ai-dungeon-cli"
 license=('mit')
 groups=()
 depends=("python-requests" "python-yaml")

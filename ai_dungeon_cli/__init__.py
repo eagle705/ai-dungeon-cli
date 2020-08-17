@@ -137,19 +137,13 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 })
             self.history = result['content']['actions']
 
-        from googletrans import Translator
-        translator = Translator()
-
-        def translate_to_local(text):
-            return translator.translate(text, dest=self.conf.locale.split('-')[0]).text
-
-        self.translate_to_local = translate_to_local
+        
             
         def show():
             text = ''.join([x['text'] for x in self.history])
             print(f'{bcolors.WARNING}{text}{bcolors.ENDC}')
             
-            result = translate_to_local(text)
+            result = self.translate_to_local(text)
             self.en_text = text
             self.local_text = result
             print(f'{bcolors.OKGREEN}{self.local_text}{bcolors.ENDC}')
@@ -171,8 +165,8 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
         show()
 
         def go(text=''):
-            result = translator.translate(text, dest="en")
-            text = result.text
+            result = self.translate_from_local(text)
+            text = result
 
             try:
                 cont(text)
@@ -199,14 +193,77 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 
         self.go = go
         self.rollback = rollback
+        
+    def install_mt(self):
+        if self.conf.mt == 'google':
+            from googletrans import Translator
+            translator = Translator()
 
-    def main(self):
+            loc = self.conf.locale.split('-')[0]
+
+            def translate_to_local(text):
+                return translator.translate(text, dest=loc).text
+
+            def translate_from_local(text):
+                return translator.translate(text, dest='en').text
+
+            self.translate_to_local = translate_to_local
+            self.translate_from_local = translate_from_local
+        elif self.conf.mt.startswith('papago'):
+            _, papago_id, papago_secret = self.conf.mt.split(',')
+
+            def translate_papago(source,target,srcText):
+                if srcText.strip() == '':
+                    return ''
+                    
+                import requests
+                import urllib
+                import json
+                encText = urllib.parse.quote(srcText)
+                data = f"source={source}&target={target}&text=" + encText
+                url = "https://openapi.naver.com/v1/papago/n2mt"
+                headers = {
+                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                    "X-Naver-Client-Id":papago_id,
+                    "X-Naver-Client-Secret":papago_secret,
+                }
+                resp = requests.post(url,headers=headers,data=data)
+                try:
+                    return json.loads(resp.content)['message']['result']['translatedText']
+                except KeyError:
+                    print('ERROR: ', resp.content)
+                    return srcText
+
+            loc = self.conf.locale.split('-')[0]
+            
+            def translate_to_local(text):
+                print('$',text)
+                return translate_papago('en',loc,text)
+
+            def translate_from_local(text):
+                print('$',text)
+                return translate_papago(loc,'en',text)
+
+            self.translate_to_local = translate_to_local
+            self.translate_from_local = translate_from_local
+
+    def install_sr(self):
         def nest(audio,url):
             import requests
             import json
             files = {'audio':audio.get_wav_data()}
             resp = requests.post(url, files=files)
             return json.loads(resp.text)['text']
+
+        def beep(type=0):
+            import subprocess
+            urls = [
+                'https://raw.githubusercontent.com/nakosung/ai-dungeon-cli/master/res/PremiumBeat_0013_cursor_selection_02.wav',
+                'https://raw.githubusercontent.com/nakosung/ai-dungeon-cli/master/res/PremiumBeat_0046_sci_fi_beep_electric_2.wav'
+            ]
+            url = urls[type]
+            command = f'''curl "{url}" --output - | play -t wav -'''
+            subprocess.Popen(command, shell=True, stderr=subprocess.DEVNULL)
 
         def listen():
             import speech_recognition as sr
@@ -217,6 +274,7 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
             with mic as source:
                 recognizer.adjust_for_ambient_noise(source)
                 print('Recording...')
+                beep(1)
                 audio = recognizer.listen(source,phrase_time_limit=5)
 
             while True:
@@ -230,8 +288,12 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                     print('Got a ASR error / retry')
                     continue
             print('Listened: ',result)
+            beep(0)
             return result
 
+        self.listen = listen
+
+    def install_tts(self):
         def say(text):
             import subprocess
             import urllib
@@ -243,8 +305,15 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 url = self.conf.tts.split(',')[1]
                 synthesize = f'curl "{url}/synthesize?speaker={self.conf.voice}&text={urllib.parse.quote(text)}&emotion=0&speed=0&pitch=0&volume=0&format=mp3&use_cache=false"'
                 f = subprocess.check_output(synthesize, shell=True, stderr=subprocess.DEVNULL)
-                subprocess.check_output(f"curl {url}{f.decode()} --output - | play -t mp3 -", shell=True, stderr=subprocess.DEVNULL)
+                subprocess.Popen(f"curl {url}{f.decode()} --output - | play -t mp3 -", shell=True, stderr=subprocess.DEVNULL)
 
+        self.say = say
+
+    def main(self):
+        self.install_mt()
+        self.install_sr()
+        self.install_tts()
+        
         auth_token = self.get_auth_token()
 
         assert auth_token
@@ -275,12 +344,12 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
             elif user_input.startswith('/s'):
                 nlines = len(user_input)-1
                 text = '\n'.join(self.local_text.split('\n')[-nlines:])
-                say(text)
+                self.say(text)
             elif user_input.startswith('/qa'):
                 prev_lines = len(self.en_text.split('\n'))
                 actor_u, actor_a = actors
                 q = user_input[len('/qa'):].strip()
-                q = listen() if len(q) == 0 else q
+                q = self.listen() if len(q) == 0 else q
                 self.go(f'{actor_u}: ' + q)
 
                 # wait for answer to be fully-generated. (MAX TRIALS: 5)
@@ -301,13 +370,13 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 for i,l in enumerate(t_en):
                     if l.startswith(actor_a):
                         l_local = self.translate_to_local(':'.join(l.split(':')[1:]))
-                        say(l_local)
+                        self.say(l_local)
                         self.rollback(max(0,len(t) - i - 1))
                         break
             else:
                 MIC = '<mic>'
                 if MIC in user_input:
-                    result = listen()
+                    result = self.listen()
                     user_input = user_input.replace(MIC,result)
                     
                 self.go(user_input.replace('\\n','\n'))

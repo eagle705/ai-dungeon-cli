@@ -29,6 +29,7 @@ class Config:
         self.voice: str = None
         self.tts: str = None
         self.asr: str = None
+        self.mt: str = None
         self.locale: str = None
         self.password: str = None
 
@@ -37,7 +38,7 @@ class Config:
         default_conf = Config()
         conf = Config()
         for c in confs:
-            for a in ['prompt', 'scene', 'debug', 'locale', 'voice', 'tts', 'asr',
+            for a in ['prompt', 'scene', 'debug', 'locale', 'voice', 'tts', 'asr', 'mt',
                       'auth_token']:
                 v = getattr(c, a)
                 if getattr(default_conf, a) != v:
@@ -63,6 +64,8 @@ class Config:
             self.tts = parsed.tts
         if hasattr(parsed, "asr"):
             self.asr = parsed.asr
+        if hasattr(parsed, "mt"):
+            self.mt = parsed.mt
         if hasattr(parsed, "voice"):
             self.voice = parsed.voice
         if hasattr(parsed, "locale"):
@@ -84,17 +87,20 @@ class Config:
                             help="authentication token")
 
         parser.add_argument("--scene", type=str, required=True,
-                            help="scene file")
+                            help="scene file. (scenes/qa),(scenes/restaurant),...")
 
         parser.add_argument("--voice", type=str, required=False,
                             help="voice actor for 'say'")
 
         parser.add_argument("--tts", type=str, required=False, default="say",
-                            help="tts driver")
+                            help="text-to-speech driver. say/nes,[url]")
 
         parser.add_argument("--asr", type=str, required=False, default="google",
-                            help="asr driver")
+                            help="speech recognition driver google/nest,[url]")
 
+        parser.add_argument("--mt", type=str, required=False, default="google",
+                            help="machine translation driver google/papago,[id],[secret]")
+                            
         parser.add_argument("--locale", type=str, default="ko-KR",
                             help="locale")
 
