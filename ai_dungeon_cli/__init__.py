@@ -347,6 +347,7 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
             if cands.index(actors[0]) > cands.index(actors[1]) or \
                 actors[0].lower().startswith('agent') or \
                 actors[1].lower().startswith('user') or \
+                actors[1].lower().startswith('human') or \
                 actors[1].lower().startswith('you'):
                 actors = actors[::-1]
 
