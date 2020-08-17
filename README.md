@@ -116,12 +116,6 @@ Please have a look at [requirements.txt](./requirements.txt).
 
 Right now, the code is over-optimistic: we don't catch cleanly when the backend is down.
 
-A better user experience could be achieved with the use of the [curses](https://docs.python.org/3/library/curses.html) library.
-
-For now `/revert` and `/alter`special actions are not supported.
-
-It would also be nice to add support for browsing other players' stories (_Explore_ menu).
-
 
 ## Support
 
