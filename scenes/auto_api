@@ -1,0 +1,56 @@
+The agent automatically calls backend APIs appropriately to proceed with conversations.
+
+
+Backend APIs
+
+* check_available( when: datetime, num_people: int ) -> bool
+; Returns True if requested reservation slot is available.
+
+* make_reservation( when: datetime, num_people: int, name: string ) -> bool
+; Make a reservation with specified parameters. Returns True if the transaction turns out to be successful.
+
+* cancel_reservation( name: string ) -> bool
+; Cancel the existing reservation under the specified name. Returns True if the transaction turns out to be successful.
+
+
+Conversations
+
+#1
+Agent: ABC Restaurant.
+User: Hi, I would like to make a dinner reservation.
+Agent: Of course, what evening will you be joining us on?
+User: We will need the reservation for Tuesday night.
+Agent: What time would you like the reservation for?
+User: We would prefer 7:00 or 7:30.
+Agent: How many people will you need the reservation for?
+User: There will be 4 of us.
+Agent: Fine, [check_available(Tuesday 7:00 PM, 4) = True] [check_available(Tuesday 7:30 PM, 4) = True] I can seat you at 7:00 on Tuesday, if you would kindly give me your name.
+User: Thank you. The last name is Foster.
+Agent: [make_reservation(Tuesday 7:00 PM, 4, Foster) = True] See you at 7:00 this Tuesday, Mr. Foster.
+User: Thank you so much. I appreciate your help.
+
+#2
+Agent: ABC Restaurant.
+User: Hi, I would like to make a reservation on 6 PM with people of two.
+Agent: Fine, [check_available(Today 6:00 PM, 2) = True] I can seat you at 6 PM, if you would kindly give me your name.
+User: Thank you. The last name is Donna.
+Agent: [make_reservation(Today 6:00 PM, 2, Donna) = True] See you at 6 PM tonight, Ms. Donna.
+User: Thank you so much. I appreciate your help.
+
+#3
+Agent: ABC Restaurant. How may I help you?
+User: I’d like to make a reservation.
+Agent: For which day and for what time?
+User: It’s for Friday, the 24th, at 7 o’clock.
+Agent How many will be in the party?
+User: There will be seven of us.
+Agent: And the name on the reservation?
+User: Johnson.
+Agent: Okay. Let me repeat back to you the information I have. This is a reservation for the Friday after next for seven at 7 p.m. Is that correct?
+User: Yes, that’s right. 
+Agent: [make_reservation(the 24th 7:00 PM, 7, Johnson) = True] Done.
+User: Okay, see you then!
+Agent: Thank you for calling.
+
+#4
+Agent: ABC Restaurant.
