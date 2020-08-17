@@ -139,6 +139,8 @@ Nako Sung [@nakosung](https://github.com/nakosung).
 
 ## Contributors & acknowledgements
 
+ - scenes/qa from google search results
+ - scenes/play from https://monologueblogger.com/policy/
  - TBU
  
 
