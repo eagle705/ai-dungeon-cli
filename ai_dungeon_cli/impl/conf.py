@@ -29,7 +29,9 @@ class Config:
         self.voice: str = None
         self.tts: str = None
         self.asr: str = None
+        self.gpt: int = None
         self.mt: str = None
+        self.temperature: float = 0.5
         self.locale: str = None
         self.password: str = None
 
@@ -38,7 +40,7 @@ class Config:
         default_conf = Config()
         conf = Config()
         for c in confs:
-            for a in ['prompt', 'scene', 'debug', 'locale', 'voice', 'tts', 'asr', 'mt',
+            for a in ['prompt', 'scene', 'debug', 'locale', 'voice', 'tts', 'asr', 'mt', 'temperature', 'gpt',
                       'auth_token']:
                 v = getattr(c, a)
                 if getattr(default_conf, a) != v:
@@ -66,6 +68,10 @@ class Config:
             self.asr = parsed.asr
         if hasattr(parsed, "mt"):
             self.mt = parsed.mt
+        if hasattr(parsed, "gpt"):
+            self.gpt = parsed.gpt
+        if hasattr(parsed, "temperature"):
+            self.temperature = parsed.temperature
         if hasattr(parsed, "voice"):
             self.voice = parsed.voice
         if hasattr(parsed, "locale"):
@@ -98,9 +104,15 @@ class Config:
         parser.add_argument("--asr", type=str, required=False, default="google",
                             help="speech recognition driver google/nest,[url]")
 
+        parser.add_argument("--gpt", type=int, required=False, default=3,
+                            help="gpt version to use. 2/3")
+
         parser.add_argument("--mt", type=str, required=False, default="google",
                             help="machine translation driver google/papago,[id],[secret]")
                             
+        parser.add_argument("--temperature", type=float, required=False, default=1.0,
+                            help="temperature for generation (recommended range: 0.5 ~ 2)")
+
         parser.add_argument("--locale", type=str, default="ko-KR",
                             help="locale")
 

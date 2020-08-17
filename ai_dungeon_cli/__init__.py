@@ -108,6 +108,21 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                                             }
             })
             self.history = result['doAlterAction']['actions']
+
+        def settings(temperature, modelType):
+            result = self._execute_query('''
+            mutation ($input: GameSettingsInput) {  saveGameSettings(input: $input) {    id    gameSettings { id safeMode modelType proofRead temperature textLength directDialog __typename } __typename }}
+            ''',                        {
+                                            "input":
+                                            {
+                                                "modelType": modelType,
+                                                "directDialog": True,
+                                                "safeMode": False,
+                                                "temperature": temperature
+                                            }
+            })
+            
+            print(result['saveGameSettings']['gameSettings'])
         
         def cont(text):
             result = self._execute_query('''
@@ -149,6 +164,8 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
             print(f'{bcolors.OKGREEN}{self.local_text}{bcolors.ENDC}')
 
         init()
+
+        settings(self.conf.temperature,'griffin' if self.conf.gpt == 2 else 'dragon')
 
         # skip gpt-2
         prompt_x = prompt[:4]
@@ -237,11 +254,9 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
             loc = self.conf.locale.split('-')[0]
             
             def translate_to_local(text):
-                print('$',text)
                 return translate_papago('en',loc,text)
 
             def translate_from_local(text):
-                print('$',text)
                 return translate_papago(loc,'en',text)
 
             self.translate_to_local = translate_to_local
