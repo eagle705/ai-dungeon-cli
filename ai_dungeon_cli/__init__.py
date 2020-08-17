@@ -161,7 +161,10 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
             result = self.translate_to_local(text)
             self.en_text = text
             self.local_text = result
-            print(f'{bcolors.OKGREEN}{self.local_text}{bcolors.ENDC}')
+
+            # this could happen within en locale.
+            if text != result:
+                print(f'{bcolors.OKGREEN}{self.local_text}{bcolors.ENDC}')
 
         init()
 
@@ -212,11 +215,18 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
         self.rollback = rollback
         
     def install_mt(self):
-        if self.conf.mt == 'google':
+        loc = self.conf.locale.split('-')[0]
+
+        if loc == 'en':
+            def nop(x):
+                return x
+
+            self.translate_to_local = nop
+            self.translate_from_local = nop
+                
+        elif self.conf.mt == 'google':
             from googletrans import Translator
             translator = Translator()
-
-            loc = self.conf.locale.split('-')[0]
 
             def translate_to_local(text):
                 return translator.translate(text, dest=loc).text
@@ -251,8 +261,6 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                     print('ERROR: ', resp.content)
                     return srcText
 
-            loc = self.conf.locale.split('-')[0]
-            
             def translate_to_local(text):
                 return translate_papago('en',loc,text)
 
@@ -348,6 +356,7 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 actors[0].lower().startswith('agent') or \
                 actors[1].lower().startswith('user') or \
                 actors[1].lower().startswith('human') or \
+                actors[1].lower().startswith('input') or \
                 actors[1].lower().startswith('you'):
                 actors = actors[::-1]
 
