@@ -21,7 +21,10 @@ setuptools.setup(
         "requests>=2.23.0",
         "PyYAML>=5.1.2",
         "gql>=v3.0.0a1",
-        "pyreadline >= 2.1;platform_system=='Windows'"
+        "pyreadline >= 2.1;platform_system=='Windows'",
+        "googletrans",
+        "SpeechRecognition",
+        "PyAudio",
     ],
     setup_requires=['setuptools-git-version'],
     entry_points={
