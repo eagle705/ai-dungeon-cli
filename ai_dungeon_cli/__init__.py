@@ -332,6 +332,68 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
 
         self.say = say
 
+    def line_bot(self,q_callback):
+        channel,secret = self.conf.linebot.split(',')
+        
+        from flask import Flask, request, abort
+
+        from linebot import (
+            LineBotApi, WebhookHandler
+        )
+        from linebot.exceptions import (
+            InvalidSignatureError
+        )
+        from linebot.models import (
+            MessageEvent, TextMessage, TextSendMessage,
+        )
+
+        app = Flask(__name__)
+
+        line_bot_api = LineBotApi(channel)
+        handler = WebhookHandler(secret)
+
+
+        @app.route("/callback", methods=['POST'])
+        def callback():
+            import json
+            # get X-Line-Signature header value
+            signature = request.headers['X-Line-Signature']
+
+            # get request body as text
+            body = request.get_data(as_text=True)
+            app.logger.info("Request body: " + body)
+
+            # handle webhook body
+            try:
+                msg = json.loads(body)
+                event = msg['events'][0]
+                reply_token = event['replyToken']
+                q = event['message']['text']
+
+                a = q_callback(q)
+
+                line_bot_api.reply_message(
+                    reply_token,
+                    TextSendMessage(text=a)
+                )
+                
+                handler.handle(body, signature)
+            except InvalidSignatureError:
+                print("Invalid signature. Please check your channel access token/channel secret.")
+                abort(400)
+
+            return 'OK'
+
+
+        @handler.add(MessageEvent, message=TextMessage)
+        def handle_message(event):
+            return
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=event.message.text))
+
+        app.run(threaded=False)
+
     def main(self):
         self.install_mt()
         self.install_sr()
@@ -362,6 +424,45 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
 
             print('Actors detected',actors)
 
+        from threading import Thread 
+        from queue import Queue 
+
+        def qa(q):
+            prev_lines = len(self.en_text.split('\n'))
+            
+            actor_u, actor_a = actors
+            self.go(f'{actor_u}: ' + q)
+
+            # wait for answer to be fully-generated. (MAX TRIALS: 5)
+            for _ in range(5):
+                found = False
+                t = self.en_text.split('\n')[prev_lines:]
+                for i,l in enumerate(t):
+                    if l.startswith(actor_a):
+                        found = i < (len(t) - 1)
+                        break
+                if found:
+                    break
+
+                self.go('')
+                        
+            t_en = self.en_text.split('\n')[prev_lines:]
+            
+            for i,l in enumerate(t_en):
+                if l.startswith(actor_a):
+                    l_en = ':'.join(l.split(':')[1:])
+                    l_local = self.translate_to_local(l_en)
+                    self.rollback(max(0,len(t) - i - 1))
+                    return l_local
+
+        def q_callback(q):
+            print('processing',q)
+            return qa(q)
+
+        if self.conf.linebot:
+            self.line_bot(q_callback)
+            return
+
         while True:
             user_input = self.user_io.handle_user_input()
             if user_input.startswith('/r'):
@@ -370,34 +471,15 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 nlines = len(user_input)-1
                 text = '\n'.join(self.local_text.split('\n')[-nlines:])
                 self.say(text)
-            elif user_input.startswith('/qa'):
-                prev_lines = len(self.en_text.split('\n'))
-                actor_u, actor_a = actors
+            elif user_input.startswith('/qa'):                
                 q = user_input[len('/qa'):].strip()
                 q = self.listen() if len(q) == 0 else q
-                self.go(f'{actor_u}: ' + q)
 
-                # wait for answer to be fully-generated. (MAX TRIALS: 5)
-                for _ in range(5):
-                    found = False
-                    t = self.en_text.split('\n')[prev_lines:]
-                    for i,l in enumerate(t):
-                        if l.startswith(actor_a):
-                            found = i < (len(t) - 1)
-                            break
-                    if found:
-                        break
+                l_local = qa(q)
 
-                    self.go('')
-                            
-                t_en = self.en_text.split('\n')[prev_lines:]
+                self.say(l_local)
+
                 
-                for i,l in enumerate(t_en):
-                    if l.startswith(actor_a):
-                        l_local = self.translate_to_local(':'.join(l.split(':')[1:]))
-                        self.say(l_local)
-                        self.rollback(max(0,len(t) - i - 1))
-                        break
             else:
                 MIC = '<mic>'
                 if MIC in user_input:

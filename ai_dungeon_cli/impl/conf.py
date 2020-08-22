@@ -29,6 +29,7 @@ class Config:
         self.voice: str = None
         self.tts: str = None
         self.asr: str = None
+        self.linebot: str = None
         self.gpt: int = None
         self.mt: str = None
         self.temperature: float = 0.5
@@ -40,7 +41,7 @@ class Config:
         default_conf = Config()
         conf = Config()
         for c in confs:
-            for a in ['prompt', 'scene', 'debug', 'locale', 'voice', 'tts', 'asr', 'mt', 'temperature', 'gpt',
+            for a in ['prompt', 'scene', 'debug', 'locale', 'voice', 'tts', 'asr', 'mt', 'temperature', 'gpt','linebot',
                       'auth_token']:
                 v = getattr(c, a)
                 if getattr(default_conf, a) != v:
@@ -66,6 +67,8 @@ class Config:
             self.tts = parsed.tts
         if hasattr(parsed, "asr"):
             self.asr = parsed.asr
+        if hasattr(parsed, "linebot"):
+            self.linebot = parsed.linebot
         if hasattr(parsed, "mt"):
             self.mt = parsed.mt
         if hasattr(parsed, "gpt"):
@@ -106,6 +109,9 @@ class Config:
 
         parser.add_argument("--gpt", type=int, required=False, default=3,
                             help="gpt version to use. 2/3")
+
+        parser.add_argument("--linebot", type=str, required=False, default="google",
+                            help="line bot [channel],[secret]")
 
         parser.add_argument("--mt", type=str, required=False, default="google",
                             help="machine translation driver google/papago,[id],[secret]")
