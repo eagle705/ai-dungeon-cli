@@ -23,6 +23,9 @@ setuptools.setup(
         "gql>=v3.0.0a1",
         "pyreadline >= 2.1;platform_system=='Windows'",
         "flask"
+        "googletrans",
+        "SpeechRecognition",
+        "PyAudio",
     ],
     setup_requires=['setuptools-git-version'],
     entry_points={
