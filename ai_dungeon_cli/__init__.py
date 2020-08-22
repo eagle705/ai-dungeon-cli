@@ -365,6 +365,7 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
 
             # handle webhook body
             try:
+                print(body)
                 msg = json.loads(body)
                 event = msg['events'][0]
                 reply_token = event['replyToken']
@@ -459,7 +460,7 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
             print('processing',q)
             return qa(q)
 
-        if self.conf.linebot:
+        if self.conf.linebot != '':
             self.line_bot(q_callback)
             return
 

@@ -110,7 +110,7 @@ class Config:
         parser.add_argument("--gpt", type=int, required=False, default=3,
                             help="gpt version to use. 2/3")
 
-        parser.add_argument("--linebot", type=str, required=False, default="google",
+        parser.add_argument("--linebot", type=str, required=False, default="",
                             help="line bot [channel],[secret]")
 
         parser.add_argument("--mt", type=str, required=False, default="google",
