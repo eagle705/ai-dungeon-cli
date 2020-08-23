@@ -408,7 +408,7 @@ def main():
                     
                     ai_dungeon = MyAiDungeonGame(conf, None)
                     channels[source] = ai_dungeon.main(callback=True,scene=scene)
-                    return f"<started> {conf.scene}"
+                    return f"<started> Now you can talk to me! (Your message '{q}' isn't processed. Please try again!)"
 
                 if q.startswith('/'):
                     return f"Unsupported command: {q}"
