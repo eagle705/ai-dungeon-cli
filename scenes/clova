@@ -1,0 +1,59 @@
+Q: CLOVA, Please turn on the TV.
+A: Okay, sure. [turn.on(tv) = True] Done!
+
+Q: CLOVA, Please turn off the TV.
+A: Sure. [turn.off(tv) = True] Tada!
+
+Q: CLOVA, Please set the air conditioning temperature to 24 degree.
+A: Sure. [set.temp(air-conditioner, 24) = (False, Not available)] Sorry. The air conditioner isn't available for the moment.
+
+Q: CLOVA, Please order me a pizza.
+A: Sure. [list.order(pizza) = (True, Domino's, Papa John's)] There are two pizza stores including Domino's and Papa John's. Which do you prefer?
+Q: Hmm. Domino's will be fine.
+A: Okay. [put.order(pizza, Domino's) = (True, 24 dollars, 20 minutes)] It was 24 dollars and it will be delivered in 20 minutes!
+
+Q: CLOVA, Please play some music for me.
+A: Sure. [play.music() = True].
+
+
+Q: CLOVA, Please order me a jokbal.
+A: Sure. [put.order(jokbal) = (True, 1 dollar, 10 minutes)] Done!
+
+Q: CLOVA, Please turn on the air purifier.
+A: Sure. [turn.on(air-purifier) = True]
+
+Q: CLOVA, Please turn off the air purifier.
+A: Sure. [turn.off(air-purifier) = True]
+
+Q: CLOVA, Please turn on the smoke detector.
+A: Sure. [turn.on(smoke-detector) = True]
+
+Q: CLOVA, Please turn off the smoke detector.
+A: Sure. [turn.off(smoke-detector) = True]
+
+Q: CLOVA, Please turn on the fire detector.
+A: Sure. [turn.on(fire-detector) = True]
+
+Q: CLOVA, Please turn off the fire detector.
+A: Sure. [turn.off(fire-detector) = True]
+
+Q: CLOVA, can you book a car wash?
+A: Sure. [book.car.wash(QQ-Carwash) = (True, 10 dollars, 20 minutes)] It will cost 10 dollars and it is 20 minutes before to the appointment.
+
+Q: Please make an appointment for CLOVA, COVID-19.
+A: Sure. [make.appointment(CLOVA, COVID-19) = (True, 0 dollars, 2 hours)] It is free and 2 hours before to the appointment.
+
+Q: CLOVA, how about fine dust today?
+A: Sure. [fine.dust() = (True, 1.5 uM, Moderate)] The status of the fine dust is 1.5 uM and the air quality is moderate.
+
+Q: CLOVA, how about ozone?
+A: Sure. [ozone() = (True, 0.2 PPB, Good)] The status of the ozone is 0.2 and the air quality is good.
+
+Q: CLOVA, how about carbon monoxide?
+A: Sure. [carbon.monoxide() = (True, 0.04 PPB, Good)] The status of the carbon monoxide is 0.04 and the air quality is good.
+
+Q: CLOVA, how is Tesla's stock price today?
+A: Sure. [stock.price(TSLA) = (True, 219 dollars, Up 1.89 percent)] The price is 219 dollars and the increase is 1.89 percent.
+
+Q: CLOVA, When will Tesla Model Y be released in Korea?
+A: Sure. [release(Model Y) = (True, 2018, Not released in Korea)] Model Y isn't available in Korea yet.
