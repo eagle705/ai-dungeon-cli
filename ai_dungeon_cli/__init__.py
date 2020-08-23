@@ -215,187 +215,18 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
         self.rollback = rollback
         
     def install_mt(self):
-        loc = self.conf.locale.split('-')[0]
-
-        if loc == 'en':
-            def nop(x):
-                return x
-
-            self.translate_to_local = nop
-            self.translate_from_local = nop
-                
-        elif self.conf.mt == 'google':
-            from googletrans import Translator
-            translator = Translator()
-
-            def translate_to_local(text):
-                return translator.translate(text, dest=loc).text
-
-            def translate_from_local(text):
-                return translator.translate(text, dest='en').text
-
-            self.translate_to_local = translate_to_local
-            self.translate_from_local = translate_from_local
-        elif self.conf.mt.startswith('papago'):
-            _, papago_id, papago_secret = self.conf.mt.split(',')
-
-            def translate_papago(source,target,srcText):
-                if srcText.strip() == '':
-                    return ''
-                    
-                import requests
-                import urllib
-                import json
-                encText = urllib.parse.quote(srcText)
-                data = f"source={source}&target={target}&text=" + encText
-                url = "https://openapi.naver.com/v1/papago/n2mt"
-                headers = {
-                    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                    "X-Naver-Client-Id":papago_id,
-                    "X-Naver-Client-Secret":papago_secret,
-                }
-                resp = requests.post(url,headers=headers,data=data)
-                try:
-                    return json.loads(resp.content)['message']['result']['translatedText']
-                except KeyError:
-                    print('ERROR: ', resp.content)
-                    return srcText
-
-            def translate_to_local(text):
-                return translate_papago('en',loc,text)
-
-            def translate_from_local(text):
-                return translate_papago(loc,'en',text)
-
-            self.translate_to_local = translate_to_local
-            self.translate_from_local = translate_from_local
+        from mt_driver import install_mt
+        install_mt(self)
 
     def install_sr(self):
-        def nest(audio,url):
-            import requests
-            import json
-            files = {'audio':audio.get_wav_data()}
-            resp = requests.post(url, files=files)
-            return json.loads(resp.text)['text']
-
-        def beep(type=0):
-            import subprocess
-            urls = [
-                'https://raw.githubusercontent.com/nakosung/ai-dungeon-cli/master/res/PremiumBeat_0013_cursor_selection_02.wav',
-                'https://raw.githubusercontent.com/nakosung/ai-dungeon-cli/master/res/PremiumBeat_0046_sci_fi_beep_electric_2.wav'
-            ]
-            url = urls[type]
-            command = f'''curl "{url}" --output - | play -t wav -'''
-            subprocess.Popen(command, shell=True, stderr=subprocess.DEVNULL)
-
-        def listen():
-            import speech_recognition as sr
-            recognizer = sr.Recognizer()
-            mic = sr.Microphone()
-            
-            print('Calibrating Mic...')
-            with mic as source:
-                recognizer.adjust_for_ambient_noise(source)
-                print('Recording...')
-                beep(1)
-                audio = recognizer.listen(source,phrase_time_limit=5)
-
-            while True:
-                try:
-                    if self.conf.asr == 'google':
-                        result = recognizer.recognize_google(audio,language=self.conf.locale)
-                    elif self.conf.asr.startswith('nest'):
-                        result = nest(audio,url=self.conf.asr.split(',')[1])
-                    break
-                except sr.UnknownValueError:
-                    print('Got a ASR error / retry')
-                    continue
-            print('Listened: ',result)
-            beep(0)
-            return result
-
-        self.listen = listen
+        from asr_driver import install_asr
+        install_asr(self)
 
     def install_tts(self):
-        def say(text):
-            import subprocess
-            import urllib
+        from tts_driver import install_tts
+        install_tts(self)
 
-            if self.conf.tts == 'say':
-                opts = ['-v',self.conf.voice] if self.conf.voice else []
-                subprocess.run(['say',*opts,text])
-            elif self.conf.tts.startswith('nes'):
-                url = self.conf.tts.split(',')[1]
-                synthesize = f'curl "{url}/synthesize?speaker={self.conf.voice}&text={urllib.parse.quote(text)}&emotion=0&speed=0&pitch=0&volume=0&format=mp3&use_cache=false"'
-                f = subprocess.check_output(synthesize, shell=True, stderr=subprocess.DEVNULL)
-                subprocess.Popen(f"curl {url}{f.decode()} --output - | play -t mp3 -", shell=True, stderr=subprocess.DEVNULL)
-
-        self.say = say
-
-    def line_bot(self,q_callback):
-        channel,secret = self.conf.linebot.split(',')
-        
-        from flask import Flask, request, abort
-
-        from linebot import (
-            LineBotApi, WebhookHandler
-        )
-        from linebot.exceptions import (
-            InvalidSignatureError
-        )
-        from linebot.models import (
-            MessageEvent, TextMessage, TextSendMessage,
-        )
-
-        app = Flask(__name__)
-
-        line_bot_api = LineBotApi(channel)
-        handler = WebhookHandler(secret)
-
-
-        @app.route("/callback", methods=['POST'])
-        def callback():
-            import json
-            # get X-Line-Signature header value
-            signature = request.headers['X-Line-Signature']
-
-            # get request body as text
-            body = request.get_data(as_text=True)
-            app.logger.info("Request body: " + body)
-
-            # handle webhook body
-            try:
-                print(body)
-                msg = json.loads(body)
-                event = msg['events'][0]
-                reply_token = event['replyToken']
-                q = event['message']['text']
-
-                a = q_callback(q)
-
-                line_bot_api.reply_message(
-                    reply_token,
-                    TextSendMessage(text=a)
-                )
-                
-                handler.handle(body, signature)
-            except InvalidSignatureError:
-                print("Invalid signature. Please check your channel access token/channel secret.")
-                abort(400)
-
-            return 'OK'
-
-
-        @handler.add(MessageEvent, message=TextMessage)
-        def handle_message(event):
-            return
-            line_bot_api.reply_message(
-                event.reply_token,
-                TextSendMessage(text=event.message.text))
-
-        app.run(threaded=False)
-
-    def main(self):
+    def main(self,callback=False):
         self.install_mt()
         self.install_sr()
         self.install_tts()
@@ -423,10 +254,7 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                 actors[1].lower().startswith('you'):
                 actors = actors[::-1]
 
-            print('Actors detected',actors)
-
-        from threading import Thread 
-        from queue import Queue 
+            print('Actors detected',actors) 
 
         def qa(q):
             prev_lines = len(self.en_text.split('\n'))
@@ -456,13 +284,8 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
                     self.rollback(max(0,len(t) - i - 1))
                     return l_local
 
-        def q_callback(q):
-            print('processing',q)
-            return qa(q)
-
-        if self.conf.linebot != '':
-            self.line_bot(q_callback)
-            return
+        if callback:
+            return qa
 
         while True:
             user_input = self.user_io.handle_user_input()
@@ -492,6 +315,70 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
 # -------------------------------------------------------------------------
 # MAIN
 
+def line_bot(conf,q_callback):
+    channel,secret = conf.linebot.split(',')
+    
+    from flask import Flask, request, abort
+
+    from linebot import (
+        LineBotApi, WebhookHandler
+    )
+    from linebot.exceptions import (
+        InvalidSignatureError, LineBotApiError
+    )
+    from linebot.models import (
+        MessageEvent, TextMessage, TextSendMessage,
+    )
+
+    app = Flask(__name__)
+
+    line_bot_api = LineBotApi(channel)
+    handler = WebhookHandler(secret)
+
+    @app.route("/callback", methods=['POST'])
+    def callback():
+        # get X-Line-Signature header value
+        signature = request.headers['X-Line-Signature']
+
+        # get request body as text
+        body = request.get_data(as_text=True)
+        app.logger.info("Request body: " + body)
+
+        # handle webhook body
+        try:
+            handler.handle(body, signature)
+        except InvalidSignatureError:
+            print("Invalid signature. Please check your channel access token/channel secret.")
+            abort(400)
+
+        return 'OK'
+
+    @handler.add(MessageEvent, message=TextMessage)
+    def handle_message(event):
+        q = event.message.text
+        
+        print('q:',q)
+        a = q_callback(event.source,q)
+
+        if a == '':
+            a = '<empty>'
+
+        try:
+            line_bot_api.reply_message(
+                event.reply_token,
+                TextSendMessage(text=a))
+                
+        except LineBotApiError: # time out might happen
+            line_bot_api.push_message(
+                event.source.sender_id,
+                TextSendMessage(text=a))
+
+    line_bot_api.broadcast(
+        TextSendMessage(text='GPT-3 is up again. /reset to reset your conversation. This system might be unstable. GPT-3 takes several seconds to process a request.\nMessages starting with / will be regarded as system commands.')
+    )
+
+    app.run(threaded=False)
+
 def main():
     try:
         # Initialize the configuration from config file
@@ -501,6 +388,24 @@ def main():
 
         if conf.debug:
             activate_debug()
+
+        if conf.linebot != '':
+            channels = {}
+            def q_callback(source,q):
+                source = f'{source}'
+                if not source in channels or q == '/reset':
+                    print('Create a channel',source)
+                    channels[source] = lambda x:x
+
+                    ai_dungeon = MyAiDungeonGame(conf, None)
+                    channels[source] = ai_dungeon.main(callback=True)
+                    return f"<started> {conf.scene}"
+
+                if q.startswith('/'):
+                    return f"Unsupported command: {q}"
+                return channels[source](q)
+            line_bot(conf, q_callback)
+            return
 
         # Initialize the terminal I/O class
         term_io = TermIo(conf.prompt)
