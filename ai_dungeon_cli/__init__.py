@@ -226,7 +226,7 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
         from tts_driver import install_tts
         install_tts(self)
 
-    def main(self,callback=False):
+    def main(self,callback=False,scene=None):
         self.install_mt()
         self.install_sr()
         self.install_tts()
@@ -235,8 +235,11 @@ class MyAiDungeonGame(AbstractAiDungeonGame):
 
         assert auth_token
 
-        with open(self.conf.scene) as f:
-            self.boot(auth_token, f.read())
+        if scene:
+            self.boot(auth_token, self.translate_from_local(scene))
+        else:
+            with open(self.conf.scene) as f:
+                self.boot(auth_token, f.read())
 
         from collections import Counter
         cands = [l.split(':')[0].strip() for l in self.en_text.split('\n')]
@@ -358,7 +361,7 @@ def line_bot(conf,q_callback):
         q = event.message.text
         
         print('q:',q)
-        a = q_callback(event.source,q)
+        a = q_callback(event.source.sender_id,q)
 
         if a == '':
             a = '<empty>'
@@ -374,7 +377,7 @@ def line_bot(conf,q_callback):
                 TextSendMessage(text=a))
 
     line_bot_api.broadcast(
-        TextSendMessage(text='GPT-3 is up again. /reset to reset your conversation. This system might be unstable. GPT-3 takes several seconds to process a request.\nMessages starting with / will be regarded as system commands.')
+        TextSendMessage(text='GPT-3 is up again. /reset [scene (multiline)] to reset your conversation. This system might be unstable. GPT-3 takes several seconds to process a request.\nMessages starting with / will be regarded as system commands.')
     )
 
     app.run(threaded=False)
@@ -393,12 +396,18 @@ def main():
             channels = {}
             def q_callback(source,q):
                 source = f'{source}'
-                if not source in channels or q == '/reset':
+                if not source in channels or q.startswith('/reset'):
                     print('Create a channel',source)
                     channels[source] = lambda x:x
 
+                    scene = None
+                    if q.startswith('/reset'):
+                        scene = q[len('/reset'):].strip()
+                        if scene == '':
+                            scene = None
+                    
                     ai_dungeon = MyAiDungeonGame(conf, None)
-                    channels[source] = ai_dungeon.main(callback=True)
+                    channels[source] = ai_dungeon.main(callback=True,scene=scene)
                     return f"<started> {conf.scene}"
 
                 if q.startswith('/'):
