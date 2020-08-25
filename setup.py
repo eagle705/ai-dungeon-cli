@@ -22,7 +22,7 @@ setuptools.setup(
         "PyYAML>=5.1.2",
         "gql>=v3.0.0a1",
         "pyreadline >= 2.1;platform_system=='Windows'",
-        "flask"
+        "flask",
         "googletrans",
         "SpeechRecognition",
         "PyAudio",
