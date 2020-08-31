@@ -4,6 +4,9 @@ This work is based on [AI Dungeon CLI](https://github.com/Eigenbahn/ai-dungeon-c
 
 Speech-enabled Interactive GPT-3 CLI is integrated with Google Speech Recognition, Google Translation and Apple Text-To-Speech.
 
+#### MacOS requirements
+- ```brew install portaudio```
+
 #### Examples
 
 The system records spoken Korean language and translates into English using Google Translation. GPT-3 generates responses and the system is translating the conversation back into Korean language and speaking in verbal Korean language using OS/X "Say". You can find out how smooth the conversation flows.
